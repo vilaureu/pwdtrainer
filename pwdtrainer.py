@@ -63,17 +63,17 @@ class Database:
         self.cur = self.con.cursor()
 
         self.cur.execute(
-            """
-            CREATE TABLE IF NOT EXISTS passwords (
-                id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, 
-                name TEXT NOT NULL UNIQUE, 
-                hash BLOB NOT NULL, 
-                salt BLOB NOT NULL, 
-                costFactor INTEGER NOT NULL, 
-                blockSize INTEGER NOT NULL, 
-                parallelism INTEGER NOT NULL
+            (
+                "CREATE TABLE IF NOT EXISTS passwords ("
+                "   id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, "
+                "   name TEXT NOT NULL UNIQUE, "
+                "   hash BLOB NOT NULL, "
+                "   salt BLOB NOT NULL, "
+                "   costFactor INTEGER NOT NULL, "
+                "   blockSize INTEGER NOT NULL, "
+                "   parallelism INTEGER NOT NULL"
+                ")"
             )
-        """
         )
 
     def insert(self, entry: Entry):
@@ -88,11 +88,11 @@ class Database:
             entry.parallelism,
         )
         self.cur.execute(
-            """
-            INSERT INTO passwords
-            (name, hash, salt, costFactor, blockSize, parallelism)
-            VALUES (?, ?, ?, ?, ?, ?)
-        """,
+            (
+                "INSERT INTO passwords "
+                "(name, hash, salt, costFactor, blockSize, parallelism) "
+                "VALUES (?, ?, ?, ?, ?, ?)"
+            ),
             params,
         )
         self.con.commit()
@@ -108,10 +108,10 @@ class Database:
         """Return all database entries."""
 
         rows = self.cur.execute(
-            """
-            SELECT name, hash, salt, costFactor, blockSize, parallelism
-            FROM passwords
-        """
+            (
+                "SELECT name, hash, salt, costFactor, blockSize, parallelism "
+                "FROM passwords"
+            )
         )
         for row in rows:
             yield Entry(row[0], row[1], row[2], row[3], row[4], row[5])
@@ -120,10 +120,10 @@ class Database:
         """Return the specified entry."""
 
         rows = self.cur.execute(
-            """
-            SELECT name, hash, salt, costFactor, blockSize, parallelism
-            FROM passwords WHERE name = ?
-        """,
+            (
+                "SELECT name, hash, salt, costFactor, blockSize, parallelism "
+                "FROM passwords WHERE name = ?"
+            ),
             (normalize(name),),
         )
         row = next(rows)
