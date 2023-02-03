@@ -195,7 +195,15 @@ def train(args):
 
 
 def main():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        epilog=(
+            "Copyright (C) 2021, 2023 Viktor Reusch -- "
+            "This program comes with ABSOLUTELY NO WARRANTY. "
+            "This is free software, and you are welcome to redistribute it "
+            "under the conditions of the GNU General Public License version 3 "
+            "or later."
+        )
+    )
     subparsers = parser.add_subparsers(required=True)
 
     create_parser = subparsers.add_parser(
