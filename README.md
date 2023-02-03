@@ -1,5 +1,30 @@
 # Password Trainer
 
+This is a simple password trainer which stores hashed passwords and compares
+them on training sessions.
+
+This program comes with **absolutely no warranty**.
+I am no security nor cryptography expert.
+Please review the code yourself before entrusting it with your passwords.
+
+## Usage
+
+Make sure you have the dependencies from `./requirements.txt` installed.
+
+```
+$ ./pwdtrainer.py --help
+```
+
+The program will create a password database at the appropriate place in your
+home folder.
+
+## Dependencies
+
+This program uses the following libraries:
+
+- [_appdirs_](https://github.com/ActiveState/appdirs) under the
+  [MIT License](https://github.com/ActiveState/appdirs/blob/master/LICENSE.txt)
+
 ## License
 
 Copyright (C) 2021, 2023 Viktor Reusch
