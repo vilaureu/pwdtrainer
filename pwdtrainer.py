@@ -5,16 +5,17 @@ sessions.
 """
 
 import argparse
-from appdirs import user_config_dir
 import os
 import sqlite3
+import unicodedata
+from base64 import b64encode
 from getpass import getpass
 from hashlib import scrypt
+from secrets import SystemRandom, compare_digest
 from sys import stderr
 from typing import Iterator, Optional
-from base64 import b64encode
-import unicodedata
-from secrets import compare_digest, SystemRandom
+
+from appdirs import user_config_dir
 
 APP_NAME = "pwdtrainer"
 APP_AUTHOR = False
@@ -35,8 +36,15 @@ def normalize(s: str) -> str:
 class Entry:
     """Database password entry."""
 
-    def __init__(self, name: str, hashed: bytes, salt: bytes, costFactor: int,
-                 blockSize: int, parallelism: int):
+    def __init__(
+        self,
+        name: str,
+        hashed: bytes,
+        salt: bytes,
+        costFactor: int,
+        blockSize: int,
+        parallelism: int,
+    ):
         self.name = normalize(name)
         self.hashed = hashed
         self.salt = salt
@@ -54,7 +62,8 @@ class Database:
         self.con = sqlite3.connect(path)
         self.cur = self.con.cursor()
 
-        self.cur.execute("""
+        self.cur.execute(
+            """
             CREATE TABLE IF NOT EXISTS passwords (
                 id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, 
                 name TEXT NOT NULL UNIQUE, 
@@ -64,18 +73,28 @@ class Database:
                 blockSize INTEGER NOT NULL, 
                 parallelism INTEGER NOT NULL
             )
-        """)
+        """
+        )
 
     def insert(self, entry: Entry):
         """Insert entry into database."""
 
-        params = (entry.name, entry.hashed, entry.salt, entry.costFactor,
-                  entry.blockSize, entry.parallelism)
-        self.cur.execute("""
+        params = (
+            entry.name,
+            entry.hashed,
+            entry.salt,
+            entry.costFactor,
+            entry.blockSize,
+            entry.parallelism,
+        )
+        self.cur.execute(
+            """
             INSERT INTO passwords
             (name, hash, salt, costFactor, blockSize, parallelism)
             VALUES (?, ?, ?, ?, ?, ?)
-        """, params)
+        """,
+            params,
+        )
         self.con.commit()
 
     def delete(self, name: str):
@@ -88,32 +107,41 @@ class Database:
     def entries(self) -> Iterator[Entry]:
         """Return all database entries."""
 
-        rows = self.cur.execute("""
+        rows = self.cur.execute(
+            """
             SELECT name, hash, salt, costFactor, blockSize, parallelism
             FROM passwords
-        """)
+        """
+        )
         for row in rows:
             yield Entry(row[0], row[1], row[2], row[3], row[4], row[5])
 
     def entry(self, name: str) -> Optional[Entry]:
         """Return the specified entry."""
 
-        rows = self.cur.execute("""
+        rows = self.cur.execute(
+            """
             SELECT name, hash, salt, costFactor, blockSize, parallelism
             FROM passwords WHERE name = ?
-        """, (normalize(name),))
+        """,
+            (normalize(name),),
+        )
         row = next(rows)
         return Entry(row[0], row[1], row[2], row[3], row[4], row[5])
 
 
-def input_hash(salt: bytes, n: int = SCRYPT_N, r: int = SCRYPT_R,
-               p: int = SCRYPT_P, dklen: int = HASH_LEN,
-               prompt: str = "Password: ") -> bytes:
+def input_hash(
+    salt: bytes,
+    n: int = SCRYPT_N,
+    r: int = SCRYPT_R,
+    p: int = SCRYPT_P,
+    dklen: int = HASH_LEN,
+    prompt: str = "Password: ",
+) -> bytes:
     """Request password from stdin and compute hash."""
 
     password = bytes(normalize(getpass(prompt)), encoding="UTF-8")
-    return scrypt(password, salt=salt, n=n, r=r, p=p, maxmem=SCRYPT_MEM,
-                  dklen=dklen)
+    return scrypt(password, salt=salt, n=n, r=r, p=p, maxmem=SCRYPT_MEM, dklen=dklen)
 
 
 def create(args):
@@ -151,8 +179,15 @@ def list_cmd(args):
 
         print(entry.name, end="")
         if args.verbose:
-            print("", hashed, salt, entry.costFactor, entry.blockSize,
-                  entry.parallelism, end="")
+            print(
+                "",
+                hashed,
+                salt,
+                entry.costFactor,
+                entry.blockSize,
+                entry.parallelism,
+                end="",
+            )
         print()
 
 
@@ -180,9 +215,13 @@ def train(args):
         entry: Entry = entries[i]
         try:
             hashed = input_hash(
-                entry.salt, entry.costFactor, entry.blockSize,
-                entry.parallelism, len(entry.hashed),
-                f"Password for {entry.name}: ")
+                entry.salt,
+                entry.costFactor,
+                entry.blockSize,
+                entry.parallelism,
+                len(entry.hashed),
+                f"Password for {entry.name}: ",
+            )
         except KeyboardInterrupt:
             print()
             i += 1
@@ -206,27 +245,22 @@ def main():
     )
     subparsers = parser.add_subparsers(required=True)
 
-    create_parser = subparsers.add_parser(
-        "create", help="create new password entry")
+    create_parser = subparsers.add_parser("create", help="create new password entry")
     create_parser.add_argument("name", help="name of the new entry")
     create_parser.set_defaults(func=create)
 
-    delete_parser = subparsers.add_parser(
-        "delete", help="delete password entries")
+    delete_parser = subparsers.add_parser("delete", help="delete password entries")
     delete_parser.add_argument("name", nargs="+", help="name of an entry")
     delete_parser.set_defaults(func=delete)
 
-    list_parser = subparsers.add_parser(
-        "list", help="list stored password entries")
+    list_parser = subparsers.add_parser("list", help="list stored password entries")
     list_parser.add_argument(
-        "-v", "--verbose", action="store_true",
-        help="print all password properties")
+        "-v", "--verbose", action="store_true", help="print all password properties"
+    )
     list_parser.set_defaults(func=list_cmd)
 
-    train_parser = subparsers.add_parser(
-        "train", help="ask for and check passwords")
-    train_parser.add_argument(
-        "name", nargs="*", help="name of the password to train")
+    train_parser = subparsers.add_parser("train", help="ask for and check passwords")
+    train_parser.add_argument("name", nargs="*", help="name of the password to train")
     train_parser.set_defaults(func=train)
 
     args = parser.parse_args()
