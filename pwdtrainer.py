@@ -9,6 +9,7 @@ import os
 import sqlite3
 import unicodedata
 from base64 import b64encode
+from dataclasses import dataclass
 from getpass import getpass
 from hashlib import scrypt
 from secrets import SystemRandom, compare_digest
@@ -29,28 +30,24 @@ SCRYPT_MEM = 1 << 30
 HASH_LEN = 32
 
 
-def normalize(s: str) -> str:
-    return unicodedata.normalize("NFC", s)
+def normalize(string: str) -> str:
+    """Perform unicode normalization."""
+    return unicodedata.normalize("NFC", string)
 
 
+@dataclass
 class Entry:
     """Database password entry."""
 
-    def __init__(
-        self,
-        name: str,
-        hashed: bytes,
-        salt: bytes,
-        costFactor: int,
-        blockSize: int,
-        parallelism: int,
-    ):
-        self.name = normalize(name)
-        self.hashed = hashed
-        self.salt = salt
-        self.costFactor = costFactor
-        self.blockSize = blockSize
-        self.parallelism = parallelism
+    name: str
+    hashed: bytes
+    salt: bytes
+    cost_factor: int
+    block_size: int
+    parallelism: int
+
+    def __post_init__(self):
+        self.name = normalize(self.name)
 
 
 class Database:
@@ -83,8 +80,8 @@ class Database:
             entry.name,
             entry.hashed,
             entry.salt,
-            entry.costFactor,
-            entry.blockSize,
+            entry.cost_factor,
+            entry.block_size,
             entry.parallelism,
         )
         self.cur.execute(
@@ -130,18 +127,27 @@ class Database:
         return Entry(row[0], row[1], row[2], row[3], row[4], row[5])
 
 
+# pylint: disable=too-many-arguments
 def input_hash(
     salt: bytes,
-    n: int = SCRYPT_N,
-    r: int = SCRYPT_R,
-    p: int = SCRYPT_P,
+    scrypt_n: int = SCRYPT_N,
+    scrypt_r: int = SCRYPT_R,
+    scrypt_p: int = SCRYPT_P,
     dklen: int = HASH_LEN,
     prompt: str = "Password: ",
 ) -> bytes:
     """Request password from stdin and compute hash."""
 
     password = bytes(normalize(getpass(prompt)), encoding="UTF-8")
-    return scrypt(password, salt=salt, n=n, r=r, p=p, maxmem=SCRYPT_MEM, dklen=dklen)
+    return scrypt(
+        password,
+        salt=salt,
+        n=scrypt_n,
+        r=scrypt_r,
+        p=scrypt_p,
+        maxmem=SCRYPT_MEM,
+        dklen=dklen,
+    )
 
 
 def create(args):
@@ -160,9 +166,9 @@ def create(args):
 def delete(args):
     """Delete the specified entries."""
 
-    db = Database()
+    database = Database()
     for name in args.name:
-        db.delete(name)
+        database.delete(name)
 
 
 def list_cmd(args):
@@ -183,8 +189,8 @@ def list_cmd(args):
                 "",
                 hashed,
                 salt,
-                entry.costFactor,
-                entry.blockSize,
+                entry.cost_factor,
+                entry.block_size,
                 entry.parallelism,
                 end="",
             )
@@ -194,16 +200,16 @@ def list_cmd(args):
 def train(args):
     """Train passwords in random order."""
 
-    db = Database()
+    database = Database()
     if args.name:
         entries = []
         for name in args.name:
             try:
-                entries.append(db.entry(name))
+                entries.append(database.entry(name))
             except StopIteration:
                 print(f"no entry for '{name}' found", file=stderr)
     else:
-        entries = list(db.entries())
+        entries = list(database.entries())
 
     random = SystemRandom()
     random.shuffle(entries)
@@ -216,8 +222,8 @@ def train(args):
         try:
             hashed = input_hash(
                 entry.salt,
-                entry.costFactor,
-                entry.blockSize,
+                entry.cost_factor,
+                entry.block_size,
                 entry.parallelism,
                 len(entry.hashed),
                 f"Password for {entry.name}: ",
@@ -234,14 +240,20 @@ def train(args):
 
 
 def main():
+    """Main function parsing command line arguments."""
+
     parser = argparse.ArgumentParser(
+        description=(
+            "Password trainer which stores hashed passwords and compares "
+            "them on training sessions."
+        ),
         epilog=(
             "Copyright (C) 2021, 2023 Viktor Reusch -- "
             "This program comes with ABSOLUTELY NO WARRANTY. "
             "This is free software, and you are welcome to redistribute it "
             "under the conditions of the GNU General Public License version 3 "
             "or later."
-        )
+        ),
     )
     subparsers = parser.add_subparsers(required=True)
 
